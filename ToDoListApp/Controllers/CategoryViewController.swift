@@ -8,12 +8,14 @@
 
 import UIKit
 import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
-
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
-    var categoryArray = [Category]()
+    let realm = try! Realm()
+
+    
+    var categories: Results<Category>?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -24,33 +26,44 @@ class CategoryViewController: UITableViewController {
     // MARK: - Table view data source
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categoryArray.count
+        return categories?.count ?? 1
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoCategoryCell", for: indexPath)
         
-        let category = categoryArray[indexPath.row]
 
-        cell.textLabel?.text = category.name
+        cell.textLabel?.text = categories?[indexPath.row].name ?? "No Categories Added Yet"
         
         return cell
     }
 
     
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        performSegue(withIdentifier: "goToItems", sender: self)
+    }
+    
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        let destinationVc = segue.destination as! ToDoListViewController
+        
+        if let indexpath = tableView.indexPathForSelectedRow{
+            destinationVc.selectedCategory = categories?[indexpath.row]
+        }
+    }
+    
+    
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
+        
         var alertText = UITextField()
         
         let alert = UIAlertController(title: "Add Category", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction(title: "Add", style: .default) { (action) in
             
-            let newCategory = Category(context: self.context)
+            let newCategory = Category()
             newCategory.name = alertText.text!
             
-            self.categoryArray.append(newCategory)
-            
-            self.saveItems()
+            self.saveCategories(category: newCategory)
             
         }
         
@@ -65,25 +78,24 @@ class CategoryViewController: UITableViewController {
         present(alert, animated: true, completion: nil)
     }
     
-    func saveItems() {
+    func saveCategories(category: Category) {
         
         do{
-            try context.save()
+            try realm.write{
+                realm.add(category)
+            }
         }catch{
             print("Error saving context")
         }
         
         self.tableView.reloadData()
     }
-    
-    func loadCategories(with request: NSFetchRequest<Category> = Category.fetchRequest()){
 
-        do{
-            categoryArray = try context.fetch(request)
-        } catch {
-            print("Error")
-        }
+    func loadCategories(){
 
+        //fetch the objects from category
+        categories = realm.objects(Category.self)
+        
         tableView.reloadData()
     }
     
