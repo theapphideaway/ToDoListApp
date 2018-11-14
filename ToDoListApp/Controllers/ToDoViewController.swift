@@ -9,7 +9,7 @@
 import UIKit
 import CoreData
 
-class ToDoListViewController: UITableViewController {
+class ToDoListViewController: UITableViewController{
 
     var itemArray = [Item]()
     
@@ -24,7 +24,7 @@ class ToDoListViewController: UITableViewController {
         print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
         
-        //loadItems()
+        loadItems()
         
     }
     
@@ -46,9 +46,12 @@ class ToDoListViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
-        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+        //itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         
-        tableView.reloadData()
+        //Order here matters! if you remove the item from the array before you delete from the database,
+        //it will give you a bug in the app
+        context.delete(itemArray[indexPath.row])
+        itemArray.remove(at: indexPath.row)
         
         saveItems()
         
@@ -84,6 +87,8 @@ class ToDoListViewController: UITableViewController {
         
     }
     
+    //MARK - Model Manipulation Methods
+    
     func saveItems() {
         
         do{
@@ -94,17 +99,50 @@ class ToDoListViewController: UITableViewController {
         
         self.tableView.reloadData()
     }
-//
-//    func loadItems(){
-//        if let data = try? Data(contentsOf: dataFilePath!){
-//            let decoder = PropertyListDecoder()
-//            do{
-//            itemArray = try decoder.decode([Item].self, from: data)
-//            } catch{
-//                print("Error with decoding")
-//            }
-//        }
-//    }
+
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest()){
+        
+        do{
+            itemArray = try context.fetch(request)
+        } catch {
+            print("Error")
+        }
+        
+        tableView.reloadData()
+    }
     
+    
+}
+
+
+//MARK: - Search Bar Methods
+extension ToDoListViewController: UISearchBarDelegate{
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        
+        request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        loadItems(with: request)
+        
+    }
+    
+    //Unfocuses the search bar and reloads all the methods in the list
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0
+        {
+            loadItems()
+            
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+            
+            
+            
+        }
+        
+    }
 }
 
